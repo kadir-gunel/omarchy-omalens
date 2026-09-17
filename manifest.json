@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "kguenel.phonecam",
+  "name": "Phonecam",
+  "version": "1.0.0",
+  "author": "kguenel",
+  "description": "Start and stop the OnePlus 5 camera stream for video conferences",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Phonecam.qml"
+  },
+  "barWidget": {
+    "displayName": "Phonecam",
+    "description": "OnePlus 5 camera as a webcam for video conferences",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

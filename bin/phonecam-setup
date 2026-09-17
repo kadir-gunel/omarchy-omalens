@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#
+# phonecam-setup - install or repair the virtual camera used by phonecam.
+#
+# Run this command after a package or kernel update if the virtual camera is
+# missing. It needs root, so it asks for the password in a terminal window
+# when it runs from a graphical session.
+#
+set -euo pipefail
+
+here=$(cd -- "$(dirname -- "$0")" && pwd)
+setup="$here/../setup-v4l2loopback.sh"
+
+[[ -f $setup ]] || {
+  echo "phonecam-setup: $setup is missing. Reinstall the plugin." >&2
+  exit 1
+}
+
+if [[ -t 0 ]]; then
+  exec sudo "$setup"
+fi
+
+exec omarchy-launch-terminal bash -lc "
+  sudo '$setup' || echo 'phonecam-setup: the installation failed'
+  echo
+  read -r -p 'Press Enter to close this window. ' _
+"
