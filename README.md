@@ -104,6 +104,9 @@ rm -rf "$HOME/.config/phonecam"
 
 - The stream is a background `scrcpy` process. The phone shows a
   microphone-in-use indicator while it runs.
+- The virtual camera is owned by `root:video`. The logged-in user gets access
+  to it by an ACL for the local session (`user:...:rw-`). If your session does
+  not get that ACL, add your user to the `video` group.
 - One reader only: while a conference application holds the camera, the
   preview and the stream cannot open it again. Stop the stream first.
 - The plugin runs unsandboxed, like every Omarchy plugin. It spawns

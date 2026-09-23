@@ -64,16 +64,50 @@ done
 Install the header package of your kernel, for example linux-headers or linux-omarchy-headers."
 
 # --- load the module -------------------------------------------------------
-# Stop the stream and the preview windows of phonecam, so that the module can be
-# removed. This stops the programs of phonecam only.
-stop_phonecam_programs() {
-  local pidfile pid
-  for pidfile in /run/user/*/phonecam.pid; do
-    [[ -r $pidfile ]] || continue
-    pid=$(cat "$pidfile" 2>/dev/null || true)
-    [[ -n $pid ]] && kill "$pid" 2>/dev/null || true
+# Stop the processes of one user whose command line holds a text. The user id
+# and the command line are both checked, so a stale pidfile, a file in a shared
+# directory, or a wide pattern cannot name an unrelated process.
+stop_matching_processes() {
+  local user=$1 text=$2 dir pid cmdline
+  for dir in /proc/[0-9]*; do
+    pid=${dir#/proc/}
+    [[ $(stat -c %u "$dir" 2>/dev/null || true) == "$user" ]] || continue
+    cmdline=$(tr '\0' ' ' <"$dir/cmdline" 2>/dev/null || true)
+    [[ $cmdline == *"$text"* ]] || continue
+    kill "$pid" 2>/dev/null || true
   done
-  pkill -f 'ffplay .*-window_title phonecam preview' 2>/dev/null || true
+}
+
+# Stop the stream and the preview windows of phonecam, so that the module can
+# be removed again. Only the programs of the user that called sudo are stopped,
+# and the stream only when its pidfile names a live process of that user.
+# This script runs as root: a pidfile of another user, or one in a shared
+# directory, must never be able to name a process here.
+stop_phonecam_programs() {
+  local user=${SUDO_UID:-} pidfile pid owner cmdline
+
+  if [[ ! $user =~ ^[0-9]+$ ]]; then
+    say "the user id of the caller is unknown: the stream and the preview"
+    say "windows are not stopped. Run 'phonecam stop' and close the preview"
+    say "window if the module stays in use."
+    return 0
+  fi
+
+  pidfile="/run/user/$user/phonecam.pid"
+  if [[ -r $pidfile ]]; then
+    pid=$(cat "$pidfile" 2>/dev/null || true)
+    if [[ $pid =~ ^[0-9]+$ ]] && [[ -d /proc/$pid ]]; then
+      owner=$(stat -c %u "/proc/$pid" 2>/dev/null || true)
+      cmdline=$(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null || true)
+      if [[ $owner == "$user" ]] && [[ $cmdline == *scrcpy* ]]; then
+        kill "$pid" 2>/dev/null || true
+      else
+        say "the pidfile $pidfile does not name the camera stream of the user $user: it is not used."
+      fi
+    fi
+  fi
+
+  stop_matching_processes "$user" "phonecam preview"
   sleep 2
 }
 
