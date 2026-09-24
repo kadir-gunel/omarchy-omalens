@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "kguenel.phonecam",
-  "name": "Phonecam",
+  "id": "kguenel.omalens",
+  "name": "OmaLens",
   "version": "1.0.0",
   "author": "kguenel",
   "description": "Start and stop the OnePlus 5 camera stream for video conferences",
@@ -9,10 +9,10 @@
     "bar-widget"
   ],
   "entryPoints": {
-    "barWidget": "Phonecam.qml"
+    "barWidget": "OmaLens.qml"
   },
   "barWidget": {
-    "displayName": "Phonecam",
+    "displayName": "OmaLens",
     "description": "OnePlus 5 camera as a webcam for video conferences",
     "category": "Media",
     "allowMultiple": false,

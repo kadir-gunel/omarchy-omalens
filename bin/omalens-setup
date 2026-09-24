@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# phonecam-setup - install or repair the virtual camera used by phonecam.
+# omalens-setup - install or repair the virtual camera used by omalens.
 #
 # Run this command after a package or kernel update if the virtual camera is
 # missing. It needs root for the kernel module, so it asks for the password in
@@ -16,20 +16,20 @@ here=$(cd -- "$(dirname -- "$0")" && pwd)
 setup="$here/../setup-v4l2loopback.sh"
 
 [[ -f $setup ]] || {
-  echo "phonecam-setup: $setup is missing. Reinstall the plugin." >&2
+  echo "omalens-setup: $setup is missing. Reinstall the plugin." >&2
   exit 1
 }
 
 # --- stop the programs of this user -----------------------------------------
 # This part runs as the user, before the password. A signal here can only reach
 # a process of this user, also when the process number is used again.
-"$here/phonecam" stop >/dev/null 2>&1 || true
-pkill -u "$(id -u)" -f 'ffplay .*-window_title phonecam preview' 2>/dev/null || true
+"$here/omalens" stop >/dev/null 2>&1 || true
+pkill -u "$(id -u)" -f 'ffplay .*-window_title omalens preview' 2>/dev/null || true
 
 # The preview window ends by itself when the stream stops. Wait for it, because
 # it holds the video device, and then let the root part remove the module.
 for _ in $(seq 1 15); do
-  pgrep -u "$(id -u)" -f 'ffplay .*-window_title phonecam preview' >/dev/null 2>&1 || break
+  pgrep -u "$(id -u)" -f 'ffplay .*-window_title omalens preview' >/dev/null 2>&1 || break
   sleep 1
 done
 
@@ -39,7 +39,7 @@ if [[ -t 0 ]]; then
 fi
 
 exec omarchy-launch-terminal bash -lc "
-  sudo '$setup' || echo 'phonecam-setup: the installation failed'
+  sudo '$setup' || echo 'omalens-setup: the installation failed'
   echo
   read -r -p 'Press Enter to close this window. ' _
 "

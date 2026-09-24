@@ -4,23 +4,23 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
-// Bar widget for phonecam: the OnePlus 5 camera as a webcam.
+// Bar widget for omalens: the OnePlus 5 camera as a webcam.
 //
 //   left click    start or stop the camera stream
 //   right click   use the next picture rotation
 //   middle click  show the picture in a preview window
 //   wheel         turn the picture (up: next, down: previous rotation)
 //
-// The widget shows the state only. All work is done by the phonecam command
-// that ships in the plugin directory (bin/phonecam), so the state is also
+// The widget shows the state only. All work is done by the omalens command
+// that ships in the plugin directory (bin/omalens), so the state is also
 // correct when the stream starts from a terminal.
 BarWidget {
   id: root
-  moduleName: "kguenel.phonecam"
+  moduleName: "kguenel.omalens"
 
   // The control command next to this file, in the plugin directory. The
   // plugin is self-contained: no other files are installed.
-  readonly property string cli: Qt.resolvedUrl("bin/phonecam").toString().replace(/^file:\/\//, "")
+  readonly property string cli: Qt.resolvedUrl("bin/omalens").toString().replace(/^file:\/\//, "")
 
   // True while the camera stream runs.
   property bool running: false
@@ -60,7 +60,7 @@ BarWidget {
   }
 
   // A keybinding or a terminal can use this function:
-  //   omarchy-shell kguenel.phonecam mirror
+  //   omarchy-shell kguenel.omalens mirror
   function mirror() {
     act("mirror toggle")
   }
@@ -74,9 +74,9 @@ BarWidget {
   Component.onCompleted: refresh()
 
   // The same actions as the clicks, for a terminal or a keybinding:
-  //   omarchy-shell kguenel.phonecam toggle
+  //   omarchy-shell kguenel.omalens toggle
   IpcHandler {
-    target: "kguenel.phonecam"
+    target: "kguenel.omalens"
 
     function toggle(): void {
       root.toggle()
@@ -105,7 +105,7 @@ BarWidget {
     }
   }
 
-  // The exit status of "phonecam is-running" is the state.
+  // The exit status of "omalens is-running" is the state.
   Process {
     id: statusProc
     command: [root.cli, "is-running"]
@@ -134,7 +134,7 @@ BarWidget {
     bar: root.bar
     text: "󰄀"
     active: root.running
-    tooltipText: root.running ? "Phonecam streams the phone camera. Left: stop, right: rotate, wheel: rotate, middle: preview" : "Phonecam is off. Left: start, right: rotate, wheel: rotate, middle: preview"
+    tooltipText: root.running ? "OmaLens streams the phone camera. Left: stop, right: rotate, wheel: rotate, middle: preview" : "OmaLens is off. Left: start, right: rotate, wheel: rotate, middle: preview"
     onPressed: function(b) {
       if (b === Qt.MiddleButton)
         root.preview()

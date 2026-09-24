@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# phonecam - build the v4l2loopback module and install its configuration.
+# omalens - build the v4l2loopback module and install its configuration.
 # This script is the root part of the installation and of the repair.
 #
-#     sudo ~/.local/share/phonecam/setup-v4l2loopback.sh
+#     sudo ~/.local/share/omalens/setup-v4l2loopback.sh
 #
 # The script builds the module for each installed kernel that has a header
 # directory, installs the configuration for the boot, and loads the module. It
@@ -13,9 +13,9 @@ set -euo pipefail
 
 here=$(cd -- "$(dirname -- "$0")" && pwd)
 
-say() { printf 'phonecam: %s\n' "$*"; }
+say() { printf 'omalens: %s\n' "$*"; }
 die() {
-  printf 'phonecam: %s\n' "$*" >&2
+  printf 'omalens: %s\n' "$*" >&2
   exit 1
 }
 
@@ -65,7 +65,7 @@ Install the header package of your kernel, for example linux-headers or linux-om
 
 # --- load the module -------------------------------------------------------
 # The camera stream and the preview window hold the video device, so the module
-# cannot be removed while they run. The command bin/phonecam-setup stops them
+# cannot be removed while they run. The command bin/omalens-setup stops them
 # as the user, before it asks for the password. This script runs as root and it
 # sends no signal to any process: a process can end between a check and the
 # signal, and the process number can then belong to another process.
@@ -80,8 +80,8 @@ else
   else
     say "the module is in use by another program. It stays loaded, and the new"
     say "options take effect after the next boot."
-    say "stop the camera stream and the preview window first: bin/phonecam-setup"
-    say "does this, or run 'phonecam stop' and close the preview window."
+    say "stop the camera stream and the preview window first: bin/omalens-setup"
+    say "does this, or run 'omalens stop' and close the preview window."
     say "the programs that use a camera:"
     pgrep -a -f 'scrcpy|ffplay|chromium|zoom|teams' 2>/dev/null | head -5 | sed 's/^/  /' || true
   fi
@@ -93,7 +93,7 @@ modinfo v4l2loopback >/dev/null || die "the module did not load"
 # first free video device. Report the real node, and never assume one number.
 label=$(sed -n 's/.*card_label="\([^"]*\)".*/\1/p' \
   "$here/etc/modprobe.d/v4l2loopback.conf" 2>/dev/null)
-[[ -n $label ]] || label="OnePlus 5 Camera"
+[[ -n $label ]] || label="OmaLens Camera"
 
 if command -v v4l2-ctl >/dev/null; then
   v4l2-ctl --list-devices

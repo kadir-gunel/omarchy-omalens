@@ -1,34 +1,34 @@
 #!/usr/bin/env bash
 #
-# phonecam - use the OnePlus 5 camera as a webcam for video conferences.
+# omalens - use the OnePlus 5 camera as a webcam for video conferences.
 #
 # scrcpy streams the phone camera into the v4l2 loopback device /dev/video10,
 # so every program that can open a webcam (browser, Zoom, OBS, ffmpeg, VLC)
-# can use it as "OnePlus 5 Camera".
+# can use it as "OmaLens Camera".
 #
-#     phonecam start            start the camera stream in the background
-#     phonecam stop             stop the camera stream
-#     phonecam status           show the state of the camera stream
-#     phonecam camera <id>      use another camera of the phone
-#     phonecam rotate <value>   set the picture rotation and restart the stream
-#     phonecam preview          show the stream in a window (check the picture)
-#     phonecam run              run the stream in the foreground
+#     omalens start            start the camera stream in the background
+#     omalens stop             stop the camera stream
+#     omalens status           show the state of the camera stream
+#     omalens camera <id>      use another camera of the phone
+#     omalens rotate <value>   set the picture rotation and restart the stream
+#     omalens preview          show the stream in a window (check the picture)
+#     omalens run              run the stream in the foreground
 #
 # For scripts and for the bar widget:
 #
-#     phonecam is-running       exit status 0 when the stream runs (no output)
-#     phonecam cycle-rotation   use the next rotation value
+#     omalens is-running       exit status 0 when the stream runs (no output)
+#     omalens cycle-rotation   use the next rotation value
 #
 # Camera ids of this phone (list them with "scrcpy --list-cameras"):
 #     0  main camera on the back
 #     1  front camera (the default, because it looks at the user)
 #     2  camera on the back with the largest sensor
 #     3  camera on the back
-# The value is remembered in ~/.config/phonecam/camera.
+# The value is remembered in ~/.config/omalens/camera.
 #
 # Rotation values: 0 (phone in landscape, the usual position for a webcam),
 # 90, 180, 270, and the mirrored variants flip0, flip90, flip180, flip270.
-# The value is remembered in ~/.config/phonecam/rotation.
+# The value is remembered in ~/.config/omalens/rotation.
 #
 # The OnePlus 5 runs LineageOS 22 (Android 15).
 #
@@ -38,85 +38,85 @@
 #
 set -euo pipefail
 
-DEVICE="${PHONECAM_DEVICE:-/dev/video10}"
-CARD_LABEL="${PHONECAM_CARD_LABEL:-OnePlus 5 Camera}"
+DEVICE="${OMALENS_DEVICE:-/dev/video10}"
+CARD_LABEL="${OMALENS_CARD_LABEL:-OmaLens Camera}"
 DEFAULT_CAMERA_ID=1
-SIZE="${PHONECAM_SIZE:-1920x1080}"
-FPS="${PHONECAM_FPS:-30}"
-BITRATE="${PHONECAM_BITRATE:-8M}"
+SIZE="${OMALENS_SIZE:-1920x1080}"
+FPS="${OMALENS_FPS:-30}"
+BITRATE="${OMALENS_BITRATE:-8M}"
 
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/phonecam"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omalens"
 ROTATION_FILE="$CONFIG_DIR/rotation"
 CAMERA_FILE="$CONFIG_DIR/camera"
 MIC_FILE="$CONFIG_DIR/mic"
 MIRROR_FILE="$CONFIG_DIR/mirror"
-MIC_SINK="phonecam_mic_sink"
-MIC_SOURCE_NAME="phonecam_mic"
-MIC_LABEL="OnePlus 5 Microphone"
+MIC_SINK="omalens_mic_sink"
+MIC_SOURCE_NAME="omalens_mic"
+MIC_LABEL="OmaLens Microphone"
 # The plain "mic" source gives the sound of the microphone without a strong
 # processing. The presets for voice (mic-voice-communication, voice-call,
 # mic-voice-recognition) add a noise gate: in a quiet room they gave digital
 # silence, so they are not useful as a webcam microphone.
-MIC_SOURCE="${PHONECAM_MIC_SOURCE:-mic}"
-MIC_BITRATE="${PHONECAM_MIC_BITRATE:-128K}"
+MIC_SOURCE="${OMALENS_MIC_SOURCE:-mic}"
+MIC_BITRATE="${OMALENS_MIC_BITRATE:-128K}"
 RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}"
-PIDFILE="$RUN_DIR/phonecam.pid"
-LOGFILE="$RUN_DIR/phonecam.log"
+PIDFILE="$RUN_DIR/omalens.pid"
+LOGFILE="$RUN_DIR/omalens.log"
 
 usage() {
   cat <<'EOF'
-phonecam - use the OnePlus 5 camera as a webcam for video conferences.
+omalens - use the OnePlus 5 camera as a webcam for video conferences.
 
-    phonecam start            start the camera stream in the background
-    phonecam stop             stop the camera stream
-    phonecam status           show the state of the camera stream
-    phonecam camera [<id>]    show or set the camera of the phone
-    phonecam mic [on|off]     show or set the microphone of the phone
-    phonecam mirror [value]   show or set the mirrored picture (on, off, toggle)
-    phonecam rotate <value>   set the picture rotation and restart the stream
-    phonecam preview          show the stream in a window (check the picture)
-    phonecam run              run the stream in the foreground
+    omalens start            start the camera stream in the background
+    omalens stop             stop the camera stream
+    omalens status           show the state of the camera stream
+    omalens camera [<id>]    show or set the camera of the phone
+    omalens mic [on|off]     show or set the microphone of the phone
+    omalens mirror [value]   show or set the mirrored picture (on, off, toggle)
+    omalens rotate <value>   set the picture rotation and restart the stream
+    omalens preview          show the stream in a window (check the picture)
+    omalens run              run the stream in the foreground
 
 For scripts and for the bar widget:
 
-    phonecam is-running       exit status 0 when the stream runs (no output)
-    phonecam cycle-rotation   use the next rotation value
-    phonecam prev-rotation    use the previous rotation value
+    omalens is-running       exit status 0 when the stream runs (no output)
+    omalens cycle-rotation   use the next rotation value
+    omalens prev-rotation    use the previous rotation value
 
 Camera ids: 0 is the main camera on the back, 1 is the front camera (the
 default, because it looks at the user), 2 and 3 are cameras on the back. List
 them with "scrcpy --list-cameras". The value is remembered in
-~/.config/phonecam/camera.
+~/.config/omalens/camera.
 
 The microphone of the phone is on by default. scrcpy sends the sound to the
-audio sink phonecam_mic_sink, and the virtual source "OnePlus 5 Microphone"
-reads that sink. Select "OnePlus 5 Microphone" in the application. The value
-is remembered in ~/.config/phonecam/mic.
+audio sink omalens_mic_sink, and the virtual source "OmaLens Microphone"
+reads that sink. Select "OmaLens Microphone" in the application. The value
+is remembered in ~/.config/omalens/mic.
 
 Rotation values: 0 (phone in landscape, the usual position for a webcam),
-90, 180, 270. The value is remembered in ~/.config/phonecam/rotation.
+90, 180, 270. The value is remembered in ~/.config/omalens/rotation.
 
 A mirror turns the picture like a mirror: the left hand of the user appears on
 the left side of the picture. The value is remembered in
-~/.config/phonecam/mirror. The command builds the scrcpy value from the
+~/.config/omalens/mirror. The command builds the scrcpy value from the
 rotation and the mirror, for example flip270. The value goes to the
 application too, so the other participants see the mirrored picture.
 
 An application sees the camera only while the stream runs, because the loopback
 device uses exclusive_caps=1 (required by Chromium and WebRTC). Start the
-stream first, then select the camera "OnePlus 5 Camera" in the application.
+stream first, then select the camera "OmaLens Camera" in the application.
 EOF
 }
 
 die() {
-  printf 'phonecam: %s\n' "$*" >&2
+  printf 'omalens: %s\n' "$*" >&2
   exit 1
 }
 
 rotation() {
   local value
-  if [[ -n ${PHONECAM_ROTATION:-} ]]; then
-    printf '%s' "$PHONECAM_ROTATION"
+  if [[ -n ${OMALENS_ROTATION:-} ]]; then
+    printf '%s' "$OMALENS_ROTATION"
     return
   fi
   if [[ -r $ROTATION_FILE ]] && read -r value <"$ROTATION_FILE" && [[ -n $value ]]; then
@@ -130,8 +130,8 @@ rotation() {
 # user, so that is the default. The value is remembered in CAMERA_FILE.
 camera_id() {
   local value
-  if [[ -n ${PHONECAM_CAMERA_ID:-} ]]; then
-    printf '%s' "$PHONECAM_CAMERA_ID"
+  if [[ -n ${OMALENS_CAMERA_ID:-} ]]; then
+    printf '%s' "$OMALENS_CAMERA_ID"
     return
   fi
   if [[ -r $CAMERA_FILE ]] && read -r value <"$CAMERA_FILE" && [[ -n $value ]]; then
@@ -146,8 +146,8 @@ camera_id() {
 # MIRROR_FILE.
 mirror_on() {
   local value
-  if [[ -n ${PHONECAM_MIRROR:-} ]]; then
-    value="${PHONECAM_MIRROR}"
+  if [[ -n ${OMALENS_MIRROR:-} ]]; then
+    value="${OMALENS_MIRROR}"
   elif [[ -r $MIRROR_FILE ]] && read -r value <"$MIRROR_FILE" && [[ -n $value ]]; then
     : # the value from the file
   else
@@ -204,11 +204,11 @@ resolve_device() {
 # new picture.
 cmd_preview() {
   if ! running_pid >/dev/null; then
-    die "no camera stream runs. Start it with: phonecam start"
+    die "no camera stream runs. Start it with: omalens start"
   fi
   command -v ffplay >/dev/null || die "ffplay is missing. Install the package ffmpeg."
-  echo "phonecam: preview of $DEVICE. Close the window to stop the preview."
-  echo "phonecam: the window opens again after a change of the camera or of the rotation."
+  echo "omalens: preview of $DEVICE. Close the window to stop the preview."
+  echo "omalens: the window opens again after a change of the camera or of the rotation."
 
   local ff_pid="" watched pid changed started lifetime grace failures=0
 
@@ -237,7 +237,7 @@ cmd_preview() {
     changed=0
 
     ffplay -hide_banner -loglevel error \
-      -window_title "phonecam preview - camera $(camera_id), orientation $(capture_orientation)" \
+      -window_title "omalens preview - camera $(camera_id), orientation $(capture_orientation)" \
       -f v4l2 "$DEVICE" </dev/null &
     ff_pid=$!
 
@@ -268,13 +268,13 @@ cmd_preview() {
     done
 
     if ! pid=$(running_pid); then
-      echo "phonecam: the camera stream stopped." >&2
+      echo "omalens: the camera stream stopped." >&2
       break
     fi
 
     if ((changed)) || [[ $pid != "$watched" ]]; then
       failures=0
-      echo "phonecam: the picture changed. The window opens again."
+      echo "omalens: the picture changed. The window opens again."
       sleep 1
       continue
     fi
@@ -284,7 +284,7 @@ cmd_preview() {
     if ((lifetime < 2)); then
       failures=$((failures + 1))
       if ((failures >= 3)); then
-        echo "phonecam: the window stopped three times. Another program possibly uses the camera." >&2
+        echo "omalens: the window stopped three times. Another program possibly uses the camera." >&2
         return 1
       fi
       sleep 1
@@ -301,13 +301,13 @@ cmd_preview() {
 # scrcpy sends the microphone sound of the phone to an audio sink on the
 # computer. A virtual source takes the sound from that sink, so every program
 # that uses a microphone (browser, conference application) can use the phone
-# microphone as "OnePlus 5 Microphone".
+# microphone as "OmaLens Microphone".
 # ---------------------------------------------------------------------------
 
 mic_on() {
   local value
-  if [[ -n ${PHONECAM_MIC:-} ]]; then
-    value="${PHONECAM_MIC}"
+  if [[ -n ${OMALENS_MIC:-} ]]; then
+    value="${OMALENS_MIC}"
   elif [[ -r $MIC_FILE ]] && read -r value <"$MIC_FILE" && [[ -n $value ]]; then
     : # the value from the file
   else
@@ -328,7 +328,7 @@ mic_setup() {
   command -v pactl >/dev/null 2>&1 || return 1
   if ! mic_sink_loaded; then
     pactl load-module module-null-sink sink_name="$MIC_SINK" \
-      sink_properties="device.description=phonecam capture" >/dev/null || return 1
+      sink_properties="device.description=omalens capture" >/dev/null || return 1
   fi
   if ! mic_source_loaded; then
     pactl load-module module-remap-source master="$MIC_SINK.monitor" \
@@ -419,7 +419,7 @@ cmd_start() {
     die "a camera stream already runs (pid $pid)"
   fi
   [[ -c $DEVICE ]] ||
-    die "no video device for \"$CARD_LABEL\" ($DEVICE is missing). Run: phonecam-setup"
+    die "no video device for \"$CARD_LABEL\" ($DEVICE is missing). Run: omalens-setup"
   command -v scrcpy >/dev/null || die "scrcpy is missing. Install the package scrcpy."
   command -v adb >/dev/null || die "adb is missing. Install the package android-tools."
 
@@ -444,22 +444,22 @@ cmd_start() {
 
   if mic_on; then
     if mic_route; then
-      mic_note="phonecam: the phone microphone is \"$MIC_LABEL\" (source $MIC_SOURCE_NAME)"
+      mic_note="omalens: the phone microphone is \"$MIC_LABEL\" (source $MIC_SOURCE_NAME)"
     else
-      mic_note="phonecam: NOTE: the microphone sound does not go to $MIC_SINK."
+      mic_note="omalens: NOTE: the microphone sound does not go to $MIC_SINK."
     fi
   else
-    mic_note="phonecam: the microphone of the phone is off (phonecam mic on)"
+    mic_note="omalens: the microphone of the phone is off (omalens mic on)"
   fi
 
   cat <<EOF
-phonecam: camera stream started (pid $pid)
-phonecam: $DEVICE is "$CARD_LABEL", camera $(camera_id), $SIZE at $FPS fps, orientation $(capture_orientation)
+omalens: camera stream started (pid $pid)
+omalens: $DEVICE is "$CARD_LABEL", camera $(camera_id), $SIZE at $FPS fps, orientation $(capture_orientation)
 $mic_note
 
-Select the camera "OnePlus 5 Camera" in your conference application. Check the
-picture with "phonecam preview", and correct its rotation with
-"phonecam rotate <90|180|270>". Stop the stream with "phonecam stop".
+Select the camera "OmaLens Camera" in your conference application. Check the
+picture with "omalens preview", and correct its rotation with
+"omalens rotate <90|180|270>". Stop the stream with "omalens stop".
 EOF
 }
 
@@ -467,7 +467,7 @@ cmd_stop() {
   local pid
   if ! pid=$(running_pid); then
     rm -f "$PIDFILE"
-    echo "phonecam: no camera stream runs"
+    echo "omalens: no camera stream runs"
     return 0
   fi
   kill "$pid" 2>/dev/null || true
@@ -481,20 +481,20 @@ cmd_stop() {
   done
   rm -f "$PIDFILE"
   mic_teardown
-  echo "phonecam: camera stream stopped"
+  echo "omalens: camera stream stopped"
 }
 
 cmd_camera() {
   local value="${1:-}"
 
   if [[ -z $value ]]; then
-    echo "phonecam: camera $(camera_id)"
-    echo "phonecam: cameras of the phone:"
+    echo "omalens: camera $(camera_id)"
+    echo "omalens: cameras of the phone:"
     if command -v scrcpy >/dev/null && command -v adb >/dev/null &&
       adb get-state 2>/dev/null | grep -qx device; then
-      scrcpy --list-cameras 2>/dev/null | sed -n 's/^/phonecam:   /p' || true
+      scrcpy --list-cameras 2>/dev/null | sed -n 's/^/omalens:   /p' || true
     else
-      echo "phonecam:   connect the phone and run: scrcpy --list-cameras"
+      echo "omalens:   connect the phone and run: scrcpy --list-cameras"
     fi
     return 0
   fi
@@ -504,15 +504,15 @@ cmd_camera() {
 
   mkdir -p "$CONFIG_DIR"
   printf '%s\n' "$value" >"$CAMERA_FILE"
-  echo "phonecam: camera $value"
-  echo "phonecam: the picture and the rotation can be different with another camera."
+  echo "omalens: camera $value"
+  echo "omalens: the picture and the rotation can be different with another camera."
 
   local pid
   if pid=$(running_pid); then
     cmd_stop
     cmd_start
   else
-    echo "phonecam: no camera stream runs. Start it with: phonecam start"
+    echo "omalens: no camera stream runs. Start it with: omalens start"
   fi
 }
 
@@ -521,34 +521,34 @@ cmd_mic() {
 
   if [[ -z $value ]]; then
     if mic_on; then
-      echo "phonecam: microphone on, source $MIC_SOURCE_NAME (\"$MIC_LABEL\")"
+      echo "omalens: microphone on, source $MIC_SOURCE_NAME (\"$MIC_LABEL\")"
     else
-      echo "phonecam: microphone off"
+      echo "omalens: microphone off"
     fi
     if mic_source_loaded; then
-      echo "phonecam: the virtual source is available:"
-      pactl list short sources 2>/dev/null | awk -v s="$MIC_SOURCE_NAME" '$2 == s { print "phonecam:   " $2 }'
+      echo "omalens: the virtual source is available:"
+      pactl list short sources 2>/dev/null | awk -v s="$MIC_SOURCE_NAME" '$2 == s { print "omalens:   " $2 }'
     else
-      echo "phonecam: the virtual source is not available (the stream does not run)"
+      echo "omalens: the virtual source is not available (the stream does not run)"
     fi
     return 0
   fi
 
   case "$value" in
   on | off) ;;
-  *) die "usage: phonecam mic [on|off]" ;;
+  *) die "usage: omalens mic [on|off]" ;;
   esac
 
   mkdir -p "$CONFIG_DIR"
   printf '%s\n' "$value" >"$MIC_FILE"
-  echo "phonecam: microphone $value"
+  echo "omalens: microphone $value"
 
   local pid
   if pid=$(running_pid); then
     cmd_stop
     cmd_start
   else
-    echo "phonecam: no camera stream runs. Start it with: phonecam start"
+    echo "omalens: no camera stream runs. Start it with: omalens start"
   fi
 }
 
@@ -557,11 +557,11 @@ cmd_mirror() {
 
   if [[ -z $value ]]; then
     if mirror_on; then
-      echo "phonecam: mirror on"
+      echo "omalens: mirror on"
     else
-      echo "phonecam: mirror off"
+      echo "omalens: mirror off"
     fi
-    echo "phonecam: the picture goes to the application as $(capture_orientation) (rotation $(rotation))"
+    echo "omalens: the picture goes to the application as $(capture_orientation) (rotation $(rotation))"
     return 0
   fi
 
@@ -570,19 +570,19 @@ cmd_mirror() {
   toggle)
     if mirror_on; then value=off; else value=on; fi
     ;;
-  *) die "usage: phonecam mirror [on|off|toggle]" ;;
+  *) die "usage: omalens mirror [on|off|toggle]" ;;
   esac
 
   mkdir -p "$CONFIG_DIR"
   printf '%s\n' "$value" >"$MIRROR_FILE"
-  echo "phonecam: mirror $value"
+  echo "omalens: mirror $value"
 
   local pid
   if pid=$(running_pid); then
     cmd_stop
     cmd_start
   else
-    echo "phonecam: no camera stream runs. Start it with: phonecam start"
+    echo "omalens: no camera stream runs. Start it with: omalens start"
   fi
 }
 
@@ -590,43 +590,43 @@ cmd_rotate() {
   local value="${1:-}"
   case "$value" in
   0 | 90 | 180 | 270 | flip0 | flip90 | flip180 | flip270) ;;
-  "") die "usage: phonecam rotate <0|90|180|270|flip0|flip90|flip180|flip270>" ;;
+  "") die "usage: omalens rotate <0|90|180|270|flip0|flip90|flip180|flip270>" ;;
   *) die "invalid rotation '$value'" ;;
   esac
 
   mkdir -p "$CONFIG_DIR"
   printf '%s\n' "$value" >"$ROTATION_FILE"
-  echo "phonecam: rotation $value"
+  echo "omalens: rotation $value"
 
   local pid
   if pid=$(running_pid); then
     cmd_stop
     cmd_start
   else
-    echo "phonecam: no camera stream runs. Start it with: phonecam start"
+    echo "omalens: no camera stream runs. Start it with: omalens start"
   fi
 }
 
 cmd_status() {
   local pid
   if pid=$(running_pid); then
-    echo "phonecam: running (pid $pid), camera $(camera_id), orientation $(capture_orientation)"
+    echo "omalens: running (pid $pid), camera $(camera_id), orientation $(capture_orientation)"
   else
-    echo "phonecam: not running, camera $(camera_id), orientation $(capture_orientation)"
+    echo "omalens: not running, camera $(camera_id), orientation $(capture_orientation)"
   fi
   if mic_on; then
-    echo "phonecam: microphone on ($MIC_SOURCE_NAME)"
+    echo "omalens: microphone on ($MIC_SOURCE_NAME)"
   else
-    echo "phonecam: microphone off"
+    echo "omalens: microphone off"
   fi
-  echo "phonecam: device $DEVICE"
+  echo "omalens: device $DEVICE"
   if [[ -c $DEVICE ]]; then
-    v4l2-ctl -d "$DEVICE" --info 2>/dev/null | sed -n 's/^/phonecam: /p' || true
+    v4l2-ctl -d "$DEVICE" --info 2>/dev/null | sed -n 's/^/omalens: /p' || true
   else
-    echo "phonecam: the device does not exist. Run: phonecam-setup"
+    echo "omalens: the device does not exist. Run: omalens-setup"
   fi
   if command -v adb >/dev/null; then
-    echo "phonecam: phone $(adb get-state 2>/dev/null || echo 'not connected')"
+    echo "omalens: phone $(adb get-state 2>/dev/null || echo 'not connected')"
   fi
 }
 
