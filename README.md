@@ -44,11 +44,15 @@ the picture.
    ```
 
 3. Restart the shell: `omarchy restart shell`
-4. Build the kernel module. It asks for the password in a terminal window:
+4. Build the kernel module:
 
    ```sh
    ~/.config/omarchy/plugins/kguenel.phonecam/bin/phonecam-setup
    ```
+
+   The command stops the camera stream and the preview window of your user
+   first, then it asks for the password in a terminal window. The part that
+   runs as root sends no signal to any process.
 
 5. Connect the phone by USB, unlock it, and accept the USB-debugging question.
 6. Left-click the camera icon in the bar.

@@ -3,8 +3,12 @@
 # phonecam-setup - install or repair the virtual camera used by phonecam.
 #
 # Run this command after a package or kernel update if the virtual camera is
-# missing. It needs root, so it asks for the password in a terminal window
-# when it runs from a graphical session.
+# missing. It needs root for the kernel module, so it asks for the password in
+# a terminal window when it runs from a graphical session.
+#
+# This command stops the camera stream and the preview window of this user
+# first. They hold the video device, and the root part of the installation
+# sends no signal to a process.
 #
 set -euo pipefail
 
@@ -16,6 +20,20 @@ setup="$here/../setup-v4l2loopback.sh"
   exit 1
 }
 
+# --- stop the programs of this user -----------------------------------------
+# This part runs as the user, before the password. A signal here can only reach
+# a process of this user, also when the process number is used again.
+"$here/phonecam" stop >/dev/null 2>&1 || true
+pkill -u "$(id -u)" -f 'ffplay .*-window_title phonecam preview' 2>/dev/null || true
+
+# The preview window ends by itself when the stream stops. Wait for it, because
+# it holds the video device, and then let the root part remove the module.
+for _ in $(seq 1 15); do
+  pgrep -u "$(id -u)" -f 'ffplay .*-window_title phonecam preview' >/dev/null 2>&1 || break
+  sleep 1
+done
+
+# --- the root part ----------------------------------------------------------
 if [[ -t 0 ]]; then
   exec sudo "$setup"
 fi

@@ -254,8 +254,9 @@ On the other Omarchy computer, do these steps:
        omarchy plugin add https://github.com/kguenel/omarchy-phonecam
        omarchy restart shell
 
-3. Build the kernel module. It asks for the password in a terminal window. It
-   is safe to run again:
+3. Build the kernel module. The command stops the camera stream and the
+   preview window of the user first, then it asks for the password in a
+   terminal window. It is safe to run again:
 
        ~/.config/omarchy/plugins/kguenel.phonecam/bin/phonecam-setup
 
