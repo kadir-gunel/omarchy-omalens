@@ -13,10 +13,23 @@
 set -euo pipefail
 
 here=$(cd -- "$(dirname -- "$0")" && pwd)
-setup="$here/../setup-v4l2loopback.sh"
 
-[[ -f $setup ]] || {
-  echo "omalens-setup: $setup is missing. Reinstall the plugin." >&2
+# The script setup-v4l2loopback.sh is next to this command in the plugin
+# directory, and in the bundle when the installer put this command into
+# ~/.local/bin. Accept both layouts.
+setup=""
+for candidate in "$here/../setup-v4l2loopback.sh" \
+                 "${XDG_DATA_HOME:-$HOME/.local/share}/omalens/setup-v4l2loopback.sh"; do
+  if [[ -f $candidate ]]; then
+    setup=$(cd -- "$(dirname -- "$candidate")" && pwd)/$(basename "$candidate")
+    break
+  fi
+done
+
+[[ -n $setup ]] || {
+  echo "omalens-setup: the script setup-v4l2loopback.sh is missing." >&2
+  echo "omalens-setup: install the plugin again, or run the script from" >&2
+  echo "omalens-setup: ~/.local/share/omalens/ directly." >&2
   exit 1
 }
 
